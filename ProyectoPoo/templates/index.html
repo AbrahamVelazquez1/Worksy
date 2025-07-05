@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ofertas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        .footer-social img {
+            width: 24px;
+            height: 24px;
+            /* filter: grayscale(1); */
+            transition: filter 0.2s;
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            left: 0; right: 0; top: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 2000;
+        }
+        .modal-overlay.active {
+            display: block;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 96.1vw;
+            min-width: 0;
+            max-width: 96.1vw;
+            min-height: 50vh;
+            max-height: 80vh;
+            background: #fff;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            z-index: 2100;
+            padding: 32px 20px 20px 20px;
+            overflow-y: auto;
+            margin: 0;
+            animation: slideUpModalFull 0.5s cubic-bezier(.4,0,.2,1);
+            display: none;
+            flex-direction: column;
+            transform: none;
+        }
+        @keyframes slideUpModalFull {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (max-width: 600px) {
+            .modal {
+                border-radius: 20px 20px 0 0;
+                padding: 20px 6px 16px 6px;
+            }
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 18px;
+            font-size: 28px;
+            color: #888;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 2200;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="{{ url_for('static', filename='elementos_visuales/logo_proyecto.png') }}" alt="Logo">
+        </div>
+        <!-- Botón de menú (pon aquí la ruta de tu imagen) -->
+        <button class="menu-btn" id="menuBtn" onclick="toggleMenu()" aria-label="Abrir menú">
+            <span class="menu-icon"></span>
+        </button>
+        <!-- Menú lateral oculto -->
+        <nav class="side-menu" id="sideMenu">
+            <ul>
+                <li><a href="#">Inicio</a></li>
+                <li><a href="#">Login</a></li>
+                <li><a href="#">Registro</a></li>
+                <li><a href="#">Catálogo</a></li>
+                <li><a href="#">Ofertas</a></li>
+                <li><a href="#">Filtros</a></li>
+            </ul>
+        </nav>
+        <div class="menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
+    </header>
+
+    <!-- Barra de búsqueda -->
+    <form method="get" action="{{ url_for('index') }}">
+        <div class="search-bar">
+            <input type="text" name="search" placeholder="Buscar ofertas..." value="{{ filtros.search }}">
+            <button class="search-btn" type="submit">
+                <img src="{{ url_for('static', filename='elementos_visuales/icone-loupe-gris.png') }}" alt="Buscar">
+            </button>
+        </div>
+    </form>
+
+    <!-- Barra de filtros adaptada a la base de datos -->
+    <form method="get" action="{{ url_for('index') }}">
+        <div class="filter-bar">
+            <select class="filter-select" name="municipio">
+                <option value="">Municipio</option>
+                {% for m in municipios %}
+                    <option value="{{ m.id }}" {% if filtros.municipio == m.id|string %}selected{% endif %}>{{ m.nombre }}</option>
+                {% endfor %}
+            </select>
+            <select class="filter-select" name="estado">
+                <option value="">Estado</option>
+                {% for e in estados %}
+                    <option value="{{ e.id }}" {% if filtros.estado == e.id|string %}selected{% endif %}>{{ e.nombre }}</option>
+                {% endfor %}
+            </select>
+            <select class="filter-select" name="jornada">
+                <option value="">Jornada</option>
+                {% for j in jornadas %}
+                    <option value="{{ j.id }}" {% if filtros.jornada == j.id|string %}selected{% endif %}>{{ j.nombre }}</option>
+                {% endfor %}
+            </select>
+            <select class="filter-select" name="area">
+                <option value="">Área</option>
+                {% for a in areas %}
+                    <option value="{{ a.id }}" {% if filtros.area == a.id|string %}selected{% endif %}>{{ a.nombre }}</option>
+                {% endfor %}
+            </select>
+            <select class="filter-select" name="subarea">
+                <option value="">Subárea</option>
+                {% for s in subareas %}
+                    <option value="{{ s.id }}" {% if filtros.subarea == s.id|string %}selected{% endif %}>{{ s.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <main>
+        {% for oferta in ofertas %}
+        <section class="offer" onclick="openModal(this)" data-id="{{ oferta.id }}">
+            <h2>{{ oferta.nombre }}</h2>
+            <p><strong>Empresa:</strong> {{ oferta.empresa.nombre }}</p>
+            <p><strong>Municipio:</strong> {{ oferta.direccion.municipio.nombre }}</p>
+            <p><strong>Estado:</strong> {{ oferta.direccion.estado.nombre }}</p>
+            <p><strong>Jornada:</strong> {{ oferta.jornada.nombre }}</p>
+            <button onclick="saveOffer();event.stopPropagation();">Guardar</button>
+            <button onclick="suggestFilters();event.stopPropagation();">Sugerir Filtros</button>
+            <div class="offer-details" style="display:none;">
+                <p><strong>Área:</strong> {{ oferta.area.nombre }}</p>
+                <p><strong>Subárea:</strong> {{ oferta.subarea.nombre }}</p>
+                <p><strong>Salario:</strong> {{ oferta.salario }}</p>
+                <p><strong>Fecha de Publicación:</strong> {{ oferta.fechapublicacion }}</p>
+                <p><strong>Descripción:</strong> {{ oferta.descripcion }}</p>
+                <p><strong>Requerimientos:</strong> {{ oferta.requerimientos }}</p>
+            </div>
+        </section>
+        {% endfor %}
+    </main>
+
+    <!-- Modal para mostrar anuncio -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal()"></div>
+    <div class="modal animate__animated" id="modalAnuncio">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div id="modalContent">
+            <!-- Aquí se cargará el contenido de la oferta -->
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">
+                <span>Proyecto POO</span>
+            </div>
+            <nav class="footer-nav">
+                <a href="#">Inicio</a>
+                <a href="#">Catálogo</a>
+                <a href="#">Ofertas</a>
+                <a href="#">Contacto</a>
+            </nav>
+            <div class="footer-social">
+                <a href="#" title="Twitter"><img src="{{ url_for('static', filename='elementos_visuales/twitter-x-logo.png') }}" alt="Twitter" /></a>
+                <a href="#" title="Facebook"><img src="{{ url_for('static', filename='elementos_visuales/Facebook_Logo.png') }}" alt="Facebook" /></a>
+                <a href="#" title="Instagram"><img src="{{ url_for('static', filename='elementos_visuales/Instagram_logo.png') }}" alt="Instagram" /></a>
+            </div>
+        </div>
+        <div class="footer-copy">
+            &copy; 2025 Proyecto POO. Todos los derechos reservados.
+        </div>
+    </footer>
+    <script>
+        function saveOffer() {
+            alert("Oferta guardada!");
+        }
+        function suggestFilters() {
+            alert("Filtros sugeridos!");
+        }
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('menuOverlay');
+            const btn = document.getElementById('menuBtn');
+            menu.classList.toggle('open');
+            overlay.classList.toggle('active');
+            btn.classList.toggle('active');
+        }
+        function openModal(section) {
+            const modal = document.getElementById('modalAnuncio');
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            // Carga el contenido de la oferta en el modal
+            content.innerHTML = section.innerHTML;
+            modal.classList.add('active', 'animate__slideInUp');
+            modal.classList.remove('animate__slideOutDown');
+            overlay.classList.add('active');
+        }
+        function closeModal() {
+            const modal = document.getElementById('modalAnuncio');
+            const overlay = document.getElementById('modalOverlay');
+            // Animación de salida
+            modal.classList.remove('animate__slideInUp');
+            modal.classList.add('animate__slideOutDown');
+            setTimeout(() => {
+                modal.classList.remove('active');
+                overlay.classList.remove('active');
+            }, 500); // Duración de la animación
+        }
+    </script>
+</body>
+</html>
